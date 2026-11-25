@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QRクイズラリー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&amp;family=Zen+Kaku+Gothic+New:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #DCEFF2;
+  --lemon: #FFE14D;
+  --ink: #1E2A78;
+  --card: #FFFFFF;
+  --choice: #EEF6F7;
+  --muted: #4B5694;
+  --unstamped: #7A86B8;
+  --display: "Dela Gothic One", sans-serif;
+  --body: "Zen Kaku Gothic New", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 1rem/1.65 var(--body); }
+body:has(.screen-correct) { background: var(--lemon); }
+body:has(.screen-incorrect) { background: var(--card); }
+body:has(.screen-redeemed) { background: var(--ink); color: var(--card); }
+main { max-width: 480px; margin: 0 auto; padding: 20px 16px 36px; overflow-wrap: anywhere; }
+h1, h2, p { margin: 0; }
+h1, h2 { font-family: var(--display); font-weight: 400; line-height: 1.25; }
+h1 { font-size: clamp(1.5rem, 8vw, 2rem); }
+h2 { font-size: 1.25rem; }
+p + p { margin-top: 8px; }
+.muted { color: var(--muted); }
+.center { text-align: center; }
+.small { font-size: .9375rem; }
+.layout-head, .actions { margin-inline: 8px; }
+.layout-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; margin-bottom: 24px; }
+.event, .pid-badge { font-size: .9375rem; font-weight: 700; }
+.pid-badge { background: var(--card); color: var(--ink); border-radius: 30px; padding: 4px 12px; }
+.card { background: var(--card); border-radius: 28px; padding: 22px; margin: 14px 0; }
+.hero, .reward-card { background: var(--lemon); }
+.hero { padding: 28px clamp(16px, 6vw, 24px) 24px; }
+.hero h1 { font-size: clamp(1.75rem, 10vw, 2.75rem); }
+.hero.number h1 { font-size: clamp(1.375rem, 7.2vw, 2rem); }
+.hero p { margin-top: 14px; font-weight: 500; }
+.hero .stamps { margin-top: 24px; }
+.hero .mark, .quiz-heading .mark { --mark-width: 100%; }
+.hero .stamp:nth-child(2) .mark { background: var(--ink); color: var(--lemon); }
+.hero .stamp:nth-child(3) .mark { color: var(--ink); }
+.btn {
+  display: block; width: 100%; min-height: 60px; border: 2px solid transparent; border-radius: 30px;
+  font: inherit; font-size: 1.125rem; font-weight: 700; cursor: pointer; margin: 10px 0;
+  padding: 10px 14px; overflow-wrap: anywhere; touch-action: manipulation;
+}
+.btn.main { background: var(--ink); color: var(--card); }
+.btn.sub { background: transparent; color: var(--ink); border-color: var(--ink); }
+.btn.main.submit:not(:disabled) { background: var(--lemon); color: var(--ink); border: 3px solid var(--ink); font-weight: 900; }
+.btn:disabled, .btn.main:disabled { background: var(--choice); color: var(--muted); border-color: var(--unstamped); cursor: default; }
+.btn, .opt, #demo button { -webkit-tap-highlight-color: transparent; }
+.btn:not(:disabled):active, .opt:active, #demo button:active { filter: brightness(.9); }
+:where(button, input):focus-visible, .opt:has(input:focus-visible) { outline: 3px solid var(--ink); outline-offset: 2px; }
+.opt input:focus-visible { outline: none; }
+.pid {
+  font-family: var(--display); font-size: clamp(1.25rem, 6vw, 2.125rem); font-weight: 400;
+  line-height: 1.3; font-variant-numeric: tabular-nums; margin: 6px 0;
+}
+.big { font-family: var(--display); font-size: clamp(3.5rem, 18vw, 4.75rem); line-height: 1.05; }
+.big small { font-size: 1.5rem; margin-inline-start: 4px; }
+input.num {
+  width: 100%; min-height: 60px; font: inherit; font-size: 1.375rem; padding: 10px 14px; margin: 12px 0 0;
+  border: 2px solid var(--ink); border-radius: 18px; background: var(--choice); color: var(--ink); letter-spacing: .06em;
+}
+.num::placeholder { color: var(--muted); }
+.quiz-heading { display: flex; align-items: center; gap: 16px; margin: 0 8px 20px; }
+.quiz-mark { flex: 0 0 84px; }
+.quiz-mark .mark { background: var(--lemon); }
+.q { margin: 0; min-inline-size: 0; padding: 0; border: 0; }
+.q + .q { margin-top: 24px; }
+.q-text { font-size: 1.5rem; line-height: 1.5; font-weight: 900; margin-bottom: 12px; padding: 0; }
+.opt {
+  display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 14px; border-radius: 18px;
+  background: var(--choice); font-size: 1.125rem; font-weight: 700; cursor: pointer; touch-action: manipulation;
+}
+.opt + .opt { margin-top: 10px; }
+.opt input {
+  appearance: none; flex: 0 0 22px; width: 22px; height: 22px; margin: 0;
+  border: 2px solid currentColor; color: inherit; border-radius: 50%; display: grid; place-items: center; cursor: inherit;
+}
+.opt input:checked::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+.opt:has(input:checked) { background: var(--ink); color: var(--card); }
+.stamps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 8px; }
+.stamp { text-align: center; font-size: .9375rem; }
+.stamp-name { display: block; margin-top: 8px; line-height: 1.35; font-weight: 700; }
+.mark {
+  width: min(var(--mark-width, 96px), 100%); aspect-ratio: 1; margin-inline: auto; border-radius: 50%;
+  container-type: inline-size; display: grid; place-items: center; position: relative; color: var(--ink);
+  border: var(--rim, 3px) solid currentColor; transform: rotate(var(--tilt, -9deg));
+}
+.mark::before {
+  content: ""; position: absolute; inset: 6%; pointer-events: none; border: 2px solid currentColor; border-radius: 50%;
+}
+.mark-text {
+  width: 70%; text-align: center; font-weight: 900; font-size: 1rem; font-size: var(--mark-size, 23cqi);
+  line-height: 1.12; overflow-wrap: anywhere;
+}
+.stamp:nth-child(3n + 2) .mark { --tilt: 7deg; }
+.stamp:nth-child(3n + 3) .mark { --tilt: -4deg; }
+.mark.pending { border: var(--rim, 3px) dashed var(--unstamped); color: var(--muted); }
+.mark.pending::before { content: none; }
+.result-heading { display: grid; justify-items: center; gap: 8px; text-align: center; }
+.result-heading .mark { --mark-width: 200px; --rim: 6px; }
+.result-heading h1 { font-size: clamp(2.5rem, 16vw, 4rem); }
+.result-heading .big { font-size: 3.5rem; }
+.result-details { background: var(--choice); border-radius: 24px; }
+.screen-correct .result-details { background: var(--card); }
+.res { display: flex; gap: 10px; align-items: flex-start; }
+.res + .res { border-top: 1px solid var(--unstamped); margin-top: 12px; padding-top: 12px; }
+.res b { flex: none; width: 1.5em; text-align: center; font-size: 1.375rem; line-height: 1.3; }
+.total-heading { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 16px; margin: 0 8px; }
+.total-heading h1 { font: 700 1rem/1.5 var(--body); margin-bottom: 4px; }
+.total-heading > p { padding-bottom: 4px; font-weight: 700; }
+.stamp-card { padding: 20px clamp(12px, 4.6vw, 22px); }
+.stamp-card h2 { margin-bottom: 14px; }
+.reward-card { border-radius: 24px; }
+.reward-card h2 { font: 900 1.125rem/1.5 var(--body); }
+.notice { background: var(--choice); border-radius: 24px; padding: 12px 16px; margin: 12px 0; }
+.err { border: 2px solid var(--ink); }
+.redeem { text-align: center; }
+.redeem .label { font-size: clamp(1.75rem, 9vw, 2.5rem); }
+.redeem .reward { font-size: 1.125rem; font-weight: 700; margin-top: 12px; }
+.redeem .big { font-size: 3.5rem; }
+.redeem .date { margin-top: 12px; }
+.redeem.now { padding: clamp(12px, 6vh, 56px) 8px 0; }
+.redeem.now .mark { --mark-width: 250px; --rim: 8px; --tilt: -7deg; color: var(--lemon); margin-bottom: 24px; }
+.redeem.now .mark::before { border-width: 3px; }
+.redeem.now .mark-text { width: 82%; display: grid; gap: 8px; font: 700 .9375rem/1.3 var(--body); }
+.seal-label { font: 400 clamp(1.75rem, 23cqi, 3.5rem)/1.2 var(--display); }
+.redeem-summary { margin-top: 16px; }
+.redeem.past { background: var(--choice); border: 2px solid var(--unstamped); border-radius: 28px; padding: 24px; }
+.redeem.past .label { margin-bottom: 12px; }
+.dialog {
+  width: min(calc(100% - 32px), 420px); padding: 22px; border: 0; border-radius: 28px;
+  background: var(--card); color: var(--ink); overflow-wrap: anywhere;
+}
+.dialog h2 { margin-bottom: 12px; }
+.dialog::backdrop { background: color-mix(in srgb, var(--ink) 55%, transparent); }
+.spin { width: 28px; height: 28px; border: 3px solid var(--unstamped); border-top-color: var(--ink); border-radius: 50%; margin: 24px auto; animation: sp 1s linear infinite; }
+@keyframes sp { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+/* デモ専用バー（A案・B案では表示されない） */
+#demo { font: .9375rem/1.5 var(--body); background: var(--choice); color: var(--ink); padding: 8px 12px; }
+#demo .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; max-width: 480px; margin: 0 auto; }
+#demo button {
+  font: inherit; font-weight: 700; min-width: 48px; min-height: 48px; padding: 4px 10px;
+  border-radius: 30px; border: 1px solid var(--ink); background: var(--card); color: var(--ink); cursor: pointer;
+}
+#demo button.on { background: var(--ink); color: var(--card); }
+#gbar { background: var(--choice); color: var(--muted); font: .9375rem/1.4 var(--body); padding: 10px 14px; }
+</style>
+</head>
+<body>
+<div id="demo" hidden></div>
+<div id="gbar" hidden>A안에서는 이 위치에 Google의 안내 배너가 항상 표시됩니다(재현 이미지)</div>
+<main id="app" tabindex="-1"><div class="spin"></div></main>
+<dialog id="modal" class="dialog" aria-labelledby="redeem-title" aria-describedby="redeem-description"></dialog>
+<script>
+(function () {
+  'use strict';
+
+  // ===== 設定 =====
+  // B案: node tools/build-web.mjs でWebアプリURLを入れた公開用ファイルを作る。空欄ならデモ表示。
+  var API_URL = "https://script.google.com/macros/s/AKfycbw9r7OO8XddUdHJxZMTx3aSjdVnDK25JLk3VJKEd8BaVKaz6bgpKipOgeIlhAcE8pbCMw/exec";
+  // A案: Apps Script が場所IDを埋め込む（外部で開いた場合はそのまま残る）
+  var SERVER_PLACE = '<?!= place ?>';
+
+  var MODE = (typeof google !== 'undefined' && google.script && google.script.run) ? 'A' : (API_URL ? 'B' : 'DEMO');
+  var PID_KEY = 'qrRally.pid';
+  var app = document.getElementById('app');
+  var modal = document.getElementById('modal');
+  var state = { place: readPlace(), texts: {}, event: '', autoPid: false };
+
+  var MSG = {
+    closed: 'ただいまクイズの受付時間外です。',
+    busy: '混み合っています。少し待ってから、もう一度お試しください。',
+    pid_not_found: '参加番号が見つかりません。番号をご確認ください。',
+    not_eligible: '交換の条件をまだ満たしていません。',
+    redeemed: 'この参加番号は交換済みです。',
+    place_not_found: 'この会場は現在ご利用いただけません。',
+    network: '通信できませんでした。電波の良い場所で、もう一度お試しください。',
+    server: 'エラーが発生しました。もう一度お試しください。'
+  };
+
+  // ===== 共通 =====
+  function readPlace() {
+    if (SERVER_PLACE && SERVER_PLACE.charAt(0) !== '<') return SERVER_PLACE;
+    try { return (new URLSearchParams(location.search).get('place') || '').replace(/[^A-Za-z0-9_-]/g, ''); }
+    catch (e) { return ''; }
+  }
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del: function (k) { try { localStorage.removeItem(k); } catch (e) {} }
+  };
+  function esc(s) {
+    return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function T(key, def) { return (state.texts && state.texts[key]) || def; }
+  function linkButton(link) {
+    return link && link.linkName && /^https:\/\/[^\s]+$/.test(link.linkUrl || '')
+      ? '<a class="btn sub" href="' + esc(link.linkUrl) + '" target="_blank" rel="noopener noreferrer">' + esc(link.linkName) + '</a>' : '';
+  }
+  function fmtPid(p) { return String(p || '').replace(/^(\d{3})(\d{3})(\d{4})$/, '$1 $2 $3'); }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function msg(code) { return MSG[code] || MSG.server; }
+  function head(pid) {
+    return '<header class="layout-head"><span class="event">' + esc(state.event || 'QRクイズラリー') + '</span>' +
+      (pid ? '<span class="pid-badge">参加番号 ' + esc(fmtPid(pid)) + '</span>' : '') + '</header>';
+  }
+  function show(html, screen, pid) {
+    var moveFocus = app.contains(document.activeElement);
+    app.className = screen || '';
+    app.innerHTML = head(pid) + html;
+    if (moveFocus) (document.getElementById('view-title') || app).focus({ preventScroll: true });
+    window.scrollTo(0, 0);
+    on('change-pid', showEnter);
+  }
+  function stamp(name, pending) {
+    var size = '';
+    if (name && !pending) {
+      // 丸の内側に収まるよう、名前が長いほど小さくして複数行にする。
+      var columns = Math.ceil(Math.sqrt(Array.from(name).length * 1.12));
+      size = ' style="--mark-size:' + Math.min(23, 62 / columns) + 'cqi"';
+    }
+    return '<div class="mark' + (pending ? ' pending' : '') + '"><span class="mark-text"' + size + '>' +
+      esc(pending ? T('未取得', 'まだ') : name) + '</span></div>';
+  }
+  function welcomeStamps(places) {
+    var names = (places || []).slice(0, 3).map(function (p) { return p.name; });
+    if (!names.length) names.push(state.placeName || '');
+    while (names.length < 3) names.push('');
+    return '<div class="stamps" aria-hidden="true">' + names.map(function (name) {
+      return '<div class="stamp">' + stamp(name, !name) + '</div>';
+    }).join('') + '</div>';
+  }
+  function changePidButton() {
+    return state.autoPid ? '<button class="btn sub" id="change-pid">別の番号で参加する</button>' : '';
+  }
+  function loading(text) { show('<div class="spin" aria-hidden="true"></div><p class="center muted" role="status">' + esc(text || '読み込み中…') + '</p>'); }
+  function absorb(r) {
+    if (!r) return;
+    if (r.texts) state.texts = r.texts;
+    if (r.event) state.event = r.event;
+    if (r.commonLink) state.commonLink = r.commonLink;
+    if (r.place) state.placeName = r.place.name;
+  }
+
+  // ===== 通信（失敗したら 1秒・2秒・4秒・8秒＋揺らぎで自動再試行） =====
+  function raw(action, payload) {
+    if (MODE === 'A') {
+      return new Promise(function (res, rej) {
+        google.script.run.withSuccessHandler(res).withFailureHandler(rej).api(action, payload);
+      });
+    }
+    if (MODE === 'B') {
+      return fetch(API_URL, {
+        method: 'POST', redirect: 'follow', mode: 'cors', credentials: 'omit',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: action, payload: payload })
+      }).then(function (r) { if (!r.ok) throw new Error('network'); return r.json(); });
+    }
+    return sleep(250).then(function () { return Demo.api(action, JSON.parse(JSON.stringify(payload))); });
+  }
+  function call(action, payload) {
+    var waits = [1000, 2000, 4000, 8000];
+    var i = 0;
+    function attempt() {
+      return raw(action, payload).then(function (r) {
+        if (r && r.error === 'busy' && i < waits.length) return sleep(waits[i++] + Math.floor(Math.random() * 251)).then(attempt);
+        return r || { ok: false, error: 'server' };
+      }, function () {
+        if (i < waits.length) return sleep(waits[i++] + Math.floor(Math.random() * 251)).then(attempt);
+        return { ok: false, error: 'network' };
+      });
+    }
+    return attempt();
+  }
+
+  // ===== 画面 =====
+  function start() {
+    state.placeName = '';
+    loading();
+    var pid = store.get(PID_KEY);
+    call('init', { place: state.place, pid: pid || '' }).then(function (r) {
+      absorb(r);
+      if (!r.ok && r.error === 'pid_not_found') { store.del(PID_KEY); return start(); }
+      if (!r.ok) return showError(r.error);
+      state.autoPid = Boolean(pid);
+      route(r);
+    });
+  }
+
+  function route(r) {
+    if (r.redeemed) return showRedeemed(r, false);
+    if (!r.pid) {
+      if (!state.place) return showNoPlace();
+      if (!r.place) return showError('place_not_found');
+      return showWelcome(r);
+    }
+    if (!state.place || !r.place) return showProgress(r);
+    if (r.quiz) return showQuiz(r);
+    var here = (r.places || []).find(function (x) { return x.id === state.place; });
+    if (here && here.done) return showProgress(r, T('回答済み案内', 'この会場のクイズは回答済みです。'));
+    if (!r.phase.quizOpen) return showProgress(r, T('期間外', MSG.closed));
+    showProgress(r);
+  }
+
+  function showNoPlace() {
+    show('<div class="card"><p>会場のQRコードを読み取って開いてください。</p></div>' +
+      '<button class="btn sub" id="enter">参加番号を入力して結果を見る</button>' + linkButton(state.commonLink));
+    on('enter', showEnter);
+  }
+
+  function showWelcome(r) {
+    var open = r.phase && r.phase.quizOpen;
+    show('<div class="card hero"><h1 id="view-title" tabindex="-1">' + esc(state.placeName) + '</h1><p>' +
+      esc(T('はじめに', '各会場のQRコードを読み取って、クイズに答えよう。')) + '</p>' + welcomeStamps(r.places) + '</div>' +
+      '<div class="actions">' + (open ? '' : '<div class="notice">' + esc(T('期間外', MSG.closed)) + '</div>') +
+      (open ? '<button class="btn main" id="new">' + esc(T('参加ボタン', 'はじめて参加する')) + '</button>' : '') +
+      '<button class="btn sub" id="enter">' + esc(T('番号入力ボタン', '参加番号を持っている')) + '</button>' + linkButton(state.commonLink) + '</div>');
+    on('new', issue);
+    on('enter', showEnter);
+  }
+
+  function showEnter(errText) {
+    show('<div class="card"><h1 id="pid-label">参加番号を入力</h1>' +
+      '<input class="num" id="pidin" aria-labelledby="pid-label" inputmode="numeric" autocomplete="off" maxlength="13" placeholder="123 456 7890">' +
+      (typeof errText === 'string' ? '<div class="notice err">' + esc(errText) + '</div>' : '') +
+      '<button class="btn main" id="go">確認する</button>' +
+      '<button class="btn sub" id="back">戻る</button></div>');
+    var input = document.getElementById('pidin');
+    input.focus();
+    input.addEventListener('input', function () {
+      var d = input.value.replace(/\D/g, '').slice(0, 10);
+      input.value = d.replace(/^(\d{3})(\d{0,3})(\d{0,4}).*$/, function (m, a, b, c) { return [a, b, c].filter(Boolean).join(' '); }) || d;
+    });
+    on('back', start);
+    on('go', function () {
+      var pid = input.value.replace(/\D/g, '');
+      if (pid.length !== 10) return showEnter('10桁の数字を入力してください。');
+      loading('確認しています…');
+      call('init', { place: state.place, pid: pid }).then(function (r) {
+        absorb(r);
+        if (!r.ok) return showEnter(msg(r.error));
+        store.set(PID_KEY, pid);
+        state.autoPid = false;
+        route(r);
+      });
+    });
+  }
+
+  function issue() {
+    var reqKey = 'qrRally.req';
+    var req = store.get(reqKey) || uid();
+    store.set(reqKey, req);
+    loading('参加番号を発行しています…');
+    call('issue', { place: state.place, requestId: req }).then(function (r) {
+      absorb(r);
+      if (!r.ok) return showError(r.error);
+      store.set(PID_KEY, r.pid);
+      store.del(reqKey);
+      show('<div class="card hero number center"><h1 id="view-title" tabindex="-1">あなたの参加番号</h1>' +
+        '<div class="pid">' + esc(fmtPid(r.pid)) + '</div>' + welcomeStamps(r.places) + '</div>' +
+        '<div class="actions"><p>' + esc(T('番号保存案内', 'この番号はほかの会場でも使います。念のためスクリーンショットで保存してください。')) + '</p>' +
+        '<button class="btn main" id="next">クイズに進む</button></div>');
+      on('next', function () { route(r); });
+    });
+  }
+
+  function showQuiz(r) {
+    var submitId = uid();
+    var answers = {};
+    var html = '<div class="quiz-heading"><div class="quiz-mark" aria-hidden="true">' + stamp(state.placeName, false) +
+      '</div><h1 id="view-title" tabindex="-1">' + esc(state.placeName) + '</h1></div>' + (r.place && r.place.desc ? '<div class="card"><p>' + esc(r.place.desc) + '</p></div>' : '') + linkButton(r.place) + '<div class="card">';
+    r.quiz.forEach(function (q, qi) {
+      html += '<fieldset class="q"><legend class="q-text">Q' + (qi + 1) + '. ' + esc(q.text) + '</legend>';
+      q.choices.forEach(function (c, ci) {
+        html += '<label class="opt"><input type="radio" name="' + esc(q.id) + '" value="' + (ci + 1) + '"><span>' + esc(c) + '</span></label>';
+      });
+      html += '</fieldset>';
+    });
+    html += '</div><div class="actions"><button class="btn main submit" id="send" disabled>' +
+      esc(T('送信ボタン', '回答を送信する')) + '</button>' + changePidButton() + '</div>';
+    show(html, '', r.pid);
+
+    var sendBtn = document.getElementById('send');
+    var changeBtn = document.getElementById('change-pid');
+    function check() {
+      sendBtn.disabled = !r.quiz.every(function (q) { return answers[q.id] !== undefined && String(answers[q.id]).trim() !== ''; });
+    }
+    app.querySelectorAll('.opt input').forEach(function (el) {
+      el.addEventListener('change', function () {
+        answers[el.name] = el.value;
+        check();
+      });
+    });
+    sendBtn.addEventListener('click', function () {
+      askConfirmation(T('回答確認', 'この内容で回答しますか？'), T('回答確定ボタン', '回答する'), submit);
+    });
+    function submit() {
+      if (document.activeElement === sendBtn) app.focus({ preventScroll: true });
+      sendBtn.disabled = true;
+      if (changeBtn) changeBtn.disabled = true;
+      sendBtn.textContent = '送信中…';
+      call('submit', { pid: r.pid, place: state.place, submitId: submitId, answers: answers }).then(function (s) {
+        absorb(s);
+        if (!s.ok) {
+          sendBtn.disabled = false;
+          if (changeBtn) changeBtn.disabled = false;
+          sendBtn.textContent = T('送信ボタン', '回答を送信する');
+          var n = document.getElementById('senderr');
+          if (!n) { n = document.createElement('div'); n.id = 'senderr'; n.className = 'notice err'; n.setAttribute('role', 'alert'); sendBtn.before(n); }
+          n.textContent = msg(s.error);
+          if (document.activeElement === app) sendBtn.focus();
+          return;
+        }
+        showSubmitted(s);
+      });
+    }
+  }
+
+  function showSubmitted(s) {
+    if (s.already) return showProgress(s, T('回答済み案内', 'この会場のクイズは回答済みです。'));
+    var details = s.detail || [];
+    var correct = details.length > 0 && details.every(function (d) { return d.correct; });
+    var mark = correct ? stamp(state.placeName, false) : '<div class="mark pending" aria-hidden="true"></div>';
+    var html = '<div class="result-heading">' + mark +
+      '<h1 id="view-title" tabindex="-1">' + (correct ? '正解' : '不正解') + '</h1>' +
+      '<p class="small muted">この会場の獲得点数</p><div class="big">' + esc(s.got) + '<small>点</small></div></div>' +
+      '<div class="card result-details">';
+    details.forEach(function (d, i) {
+      html += '<div class="res"><b aria-hidden="true">' + (d.correct ? '〇' : '×') + '</b><div><div><strong>Q' + (i + 1) + ' ' + (d.correct ? '正解' : '不正解') + '</strong></div>' +
+        (d.explain ? '<div class="small muted">' + esc(d.explain) + '</div>' : '') + linkButton(d) + '</div></div>';
+    });
+    html += '</div><div class="actions"><button class="btn main" id="prog">合計点と進み具合を見る</button>' + changePidButton() + '</div>';
+    show(html, correct ? 'screen-correct' : 'screen-incorrect', s.pid);
+    on('prog', function () { showProgress(s); });
+  }
+
+  function showProgress(r, note) {
+    var html = (note ? '<div class="notice">' + esc(note) + '</div>' : '') +
+      '<div class="total-heading"><div><h1 id="view-title" tabindex="-1">合計点</h1><div class="big">' + esc(r.total) + '<small>点</small></div></div>' +
+      '<p>' + esc(r.doneCount) + ' / ' + esc(r.placeCount) + ' 会場</p></div>' +
+      '<div class="card stamp-card"><h2>スタンプ</h2><div class="stamps">' +
+      (r.places || []).map(function (p) {
+        return '<div class="stamp' + (p.done ? ' done' : '') + '">' + stamp(p.name, !p.done) +
+          '<span class="stamp-name">' + esc(p.name) + '</span>' +
+          (p.done ? '<div class="muted">' + esc(p.score) + '点</div>' : '') + '</div>';
+      }).join('') + '</div></div>';
+    if (r.reward) {
+      html += '<div class="card reward-card"><p class="small">今の点数でもらえる特典</p><h2>' + esc(r.reward.name) + '</h2></div>';
+    }
+    html += '<div class="actions">';
+    if (r.canRedeem) {
+      html += '<button class="btn main" id="redeem">' + esc(T('交換ボタン', '特典と交換する')) + '</button><p class="small muted center">交換するとクイズには参加できなくなります。</p>';
+    } else {
+      var why = [];
+      if (r.total < r.minScore) why.push(r.minScore + '点以上');
+      if (r.doneCount < r.minPlaces) why.push(r.minPlaces + '会場以上の回答');
+      html += '<div class="notice">' + (why.length ? '交換の条件: ' + esc(why.join('、')) : (r.phase && !r.phase.redeemOpen ? '交換の受付は終了しました。' : '交換できる特典がまだありません。')) + '</div>';
+    }
+    html += '<button class="btn sub" id="reload">最新の状態に更新</button>' + changePidButton() + '</div>';
+    show(html, '', r.pid);
+    on('redeem', function () { confirmRedeem(r); });
+    on('reload', start);
+  }
+
+  function askConfirmation(text, label, confirmed) {
+    modal.innerHTML = '<h2 id="redeem-title">' + esc(text) + '</h2><p id="redeem-description">' +
+      esc(T('確認案内', '内容を確認してから進んでください。')) + '</p>' +
+      '<button class="btn main" id="yes">' + esc(label) + '</button><button class="btn sub" id="no" autofocus>' + esc(T('確認取消ボタン', 'やめる')) + '</button>';
+    modal.showModal();
+    on('no', function () { modal.close(); });
+    on('yes', function () { modal.close(); confirmed(); });
+  }
+
+  function confirmRedeem(r) {
+    askConfirmation(T('交換確認', 'スタッフの前で押してください。交換すると、これ以降クイズには参加できません。'), T('交換確定ボタン', '交換する'), function () {
+      askConfirmation(T('交換最終確認', '本当にスタッフの前ですか？'), T('交換確定ボタン', '交換する'), function () {
+        loading('交換しています…');
+        call('redeem', { pid: r.pid }).then(function (x) {
+          absorb(x);
+          if (!x.ok) return showProgress(r, msg(x.error));
+          showRedeemed(x, x.justNow);
+        });
+      });
+    });
+  }
+
+  function showRedeemed(r, justNow) {
+    var date = '交換日時 ' + esc(r.redeemedAt);
+    var title = justNow
+      ? '<h1 id="view-title" class="mark" tabindex="-1"><span class="mark-text"><span class="seal-label">' +
+        esc(T('交換済', '交換済')) + '</span><span>' + date + '</span></span></h1>'
+      : '<h1 id="view-title" class="label" tabindex="-1">交換済み</h1>';
+    show('<div class="redeem ' + (justNow ? 'now' : 'past') + '">' + title +
+      '<p class="small">合計点</p>' +
+      '<div class="big">' + esc(r.total) + '<small>点</small></div>' +
+      (r.reward ? '<div class="reward">' + esc(r.reward.name) + '</div>' : '') +
+      (justNow ? '' : '<p class="small date">' + date + '</p>') + '</div>' +
+      '<p class="center redeem-summary">' + esc(justNow ? T('交換完了', 'この画面をスタッフに見せてください。') : 'この参加番号はすでに交換が終わっています。') +
+      '</p>' + linkButton(state.commonLink), justNow ? 'screen-redeemed' : '', r.pid);
+  }
+
+  function showError(code) {
+    show('<div class="notice err">' + esc(msg(code)) + '</div><button class="btn sub" id="retry">もう一度読み込む</button>');
+    on('retry', start);
+  }
+
+  function on(id, fn) { var el = document.getElementById(id); if (el) el.addEventListener('click', fn); }
+
+  // ===== デモ用の簡易サーバー（ブラウザ内だけで動く） =====
+  var Demo = (function () {
+    var KEY = 'qrRally.demoDB';
+    var mem = null;
+    var cfg = {
+      event: '橋を楽しむしまなみクイズラリー',
+      commonLink: { linkName: 'イベントのご案内', linkUrl: 'https://example.com/rally' },
+      minScore: 4, minPlaces: 2, wrong: 0,
+      places: [
+        { id: 'A', name: '来島海峡SA', desc: '直近の橋：来島海峡大橋', linkName: '会場のご案内', linkUrl: 'https://example.com/place-a' },
+        { id: 'B', name: '瀬戸田PA（上り）', desc: '直近の橋：多々羅大橋' },
+        { id: 'C', name: '大浜PA（上り）', desc: '直近の橋：因島大橋' },
+        { id: 'D', name: '大浜PA（下り）', desc: '直近の橋：因島大橋' }
+      ],
+      questions: [
+        { id: 'Q-A1', place: 'A', text: '来島海峡大橋は、3つの吊り橋が連続して連なっています。このような「3連吊り橋」は、完成当時なんと“世界初”だった。〇か×か？', choices: ['〇', '×'], answer: '1', points: 1, explain: '第一大橋・第二大橋・第三大橋の3つが連なる構造は世界初で、総延長は約4.1kmもあります。展望デッキからの壮大な眺めをお楽しみください！', linkName: '橋をもっと知る', linkUrl: 'https://example.com/bridge' },
+        { id: 'Q-A2', place: 'A', text: '日本三大急潮流の一つである来島海峡。潮の流れの速さは、ピーク時には時速何kmに達する？', choices: ['約5km/h（人が歩く速さ）', '約18km/h（自転車で走る速さ）', '約50km/h（車で走る速さ）'], answer: '2', points: 1, explain: '最大約10ノット（時速約18km）と、自転車並みの猛スピードで潮が流れます。激しい潮流や渦潮は、橋の上からも観察できます。' },
+        { id: 'Q-A3', place: 'A', text: '来島海峡大橋をはじめ、しまなみ海道の大きな特徴といえば次のうちどれ？', choices: ['車しか通ることができない', '歩行者や自転車・原付も海を渡ることができる', '橋の下に新幹線が走っている'], answer: '2', points: 1, explain: 'しまなみ海道は、日本で唯一「歩行者・自転車・原付道」が全橋に併設された道路です。世界中のサイクリストが憧れる聖地となっています。' },
+        { id: 'Q-B1', place: 'B', text: '瀬戸田PAのすぐそばにある美しい白い橋「多々羅大橋」。支柱の下で手を叩くと、音が反響して響き渡る現象を何と呼ぶ？', choices: ['鳴き龍（なきりゅう）', '歌う鳥（うたうとり）', 'ほえる虎（ほえるとら）'], answer: '1', points: 1, explain: '日光東照宮の天井画のように音が反響する珍しい現象です。多々羅大橋の歩道（支柱の下）には、体験用の拍子木も置かれています。' },
+        { id: 'Q-C1', place: 'C', text: 'すぐそばに見える「因島大橋」。他のしまなみ海道の橋にはない、珍しい特徴はどれ？', choices: ['上を車が走り、その真下（2階建ての下側）を自転車や人が通る', '橋の中央に展望台がある', '夜になると橋全体が真っ赤に光る'], answer: '1', points: 1, explain: '因島大橋は上層が自動車、下層が自転車歩行者道という「2階建てトラス構造」です。トラスの骨組みに囲まれた下層を走る体験は迫力満点です。' },
+        { id: 'Q-D1', place: 'D', text: '大浜PAがある「因島」が発祥の地とされる、大人気の柑橘（かんきつ）はどれ？', choices: ['八朔（はっさく）', '温州みかん', 'レモン'], answer: '1', points: 1, explain: '江戸時代、因島のお寺（浄土寺）の境内で偶然発見されたのが八朔の始まりです。当PAの売店でも、八朔を使った銘菓やスイーツが大好評です！' },
+        { id: 'Q-D2', place: 'D', text: 'ここ因島は、かつて瀬戸内海で活躍し、独自の掟で海の安全を守っていた「村上海賊（村上水軍）」の拠点の一つだった。〇か×か？', choices: ['〇', '×'], answer: '1', points: 1, explain: '因島は「因島村上氏」の本拠地でした。大浜PAの目の前に広がる海も、かつて彼らが船で行き交い警護していた歴史ある航路です。' }
+      ],
+      rewards: [{ min: 7, name: '「わたる」ぬいぐるみ', note: '全問正解おめでとうございます！' }, { min: 5, name: 'オリジナルハンカチ', note: 'ご参加ありがとうございます！' }, { min: 4, name: 'ミカンジュース', note: 'ご参加ありがとうございます！' }]
+    };
+    function load() { try { var v = JSON.parse(localStorage.getItem(KEY)); if (v) return v; } catch (e) {} return mem || { p: {}, a: [] }; }
+    function save(db) { mem = db; try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} }
+    function norm(s) { return String(s || '').normalize('NFKC').trim().toLowerCase().replace(/\s+/g, ''); }
+    function correct(q, a) { return a !== undefined && norm(q.answer) === norm(a); }
+    function base() { return { event: cfg.event, texts: {}, commonLink: cfg.commonLink, phase: { state: '運営中', quizOpen: true, redeemOpen: true } }; }
+    function view(db, pid) {
+      var p = db.p[pid];
+      if (!p) return { ok: false, error: 'pid_not_found' };
+      var done = {}, total = 0;
+      db.a.forEach(function (x) { if (x.pid === pid && !(x.place in done)) { done[x.place] = x.got; total += x.got; } });
+      var places = cfg.places.map(function (pl) { return { id: pl.id, name: pl.name, done: pl.id in done, score: pl.id in done ? done[pl.id] : null }; });
+      var doneCount = places.filter(function (x) { return x.done; }).length;
+      var reward = cfg.rewards.find(function (rw) { return total >= rw.min; }) || null;
+      var redeemed = p.state === 'REDEEMED';
+      return Object.assign(base(), {
+        ok: true, pid: pid, redeemed: redeemed, redeemedAt: p.at || '', total: total,
+        places: redeemed ? [] : places, doneCount: doneCount, placeCount: places.length, reward: reward,
+        canRedeem: !redeemed && !!reward && total >= cfg.minScore && doneCount >= cfg.minPlaces,
+        minScore: cfg.minScore, minPlaces: cfg.minPlaces
+      });
+    }
+    function init(p) {
+      var db = load();
+      var place = cfg.places.find(function (x) { return x.id === p.place; }) || null;
+      var b = Object.assign(base(), { place: place });
+      if (!p.pid) return Object.assign({ ok: true }, b);
+      var v = view(db, p.pid);
+      if (!v.ok) return Object.assign(v, b);
+      var quiz = null;
+      if (place && !v.redeemed && !v.places.find(function (x) { return x.id === place.id; }).done) {
+        quiz = cfg.questions.filter(function (q) { return q.place === place.id; }).map(function (q) { return { id: q.id, text: q.text, choices: q.choices }; });
+      }
+      return Object.assign(v, b, { quiz: quiz });
+    }
+    return {
+      reset: function () { mem = null; try { localStorage.removeItem(KEY); } catch (e) {} },
+      api: function (action, p) {
+        var db = load();
+        if (action === 'init') return init(p);
+        if (action === 'issue') {
+          var pid;
+          do { pid = String(Math.floor(1e9 + Math.random() * 9e9)); } while (db.p[pid]);
+          db.p[pid] = { state: 'ACTIVE' }; save(db);
+          return init({ pid: pid, place: p.place });
+        }
+        if (action === 'submit') {
+          if (!db.p[p.pid]) return { ok: false, error: 'pid_not_found' };
+          var qs = cfg.questions.filter(function (q) { return q.place === p.place; });
+          var got = 0;
+          var detail = qs.map(function (q) { var c = correct(q, p.answers[q.id]); got += c ? q.points : cfg.wrong; return { id: q.id, correct: c, explain: q.explain, linkName: q.linkName, linkUrl: q.linkUrl }; });
+          var already = db.a.some(function (x) { return x.pid === p.pid && x.place === p.place; });
+          if (!already) { db.a.push({ pid: p.pid, place: p.place, got: got }); save(db); }
+          return Object.assign(view(db, p.pid), { already: already, got: already ? null : got, detail: already ? [] : detail });
+        }
+        if (action === 'result') return view(db, p.pid);
+        if (action === 'redeem') {
+          var v = view(db, p.pid);
+          if (!v.ok) return v;
+          if (v.redeemed) return Object.assign(v, { justNow: false });
+          if (!v.canRedeem) return { ok: false, error: 'not_eligible' };
+          var d = new Date();
+          db.p[p.pid] = { state: 'REDEEMED', at: (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) };
+          save(db);
+          return Object.assign(view(db, p.pid), { justNow: true });
+        }
+        return { ok: false, error: 'server' };
+      }
+    };
+  })();
+
+  // デモ専用バー（사장님 확인용, A案・B案では表示されない）
+  function demoBar() {
+    var bar = document.getElementById('demo');
+    var gbar = document.getElementById('gbar');
+    bar.hidden = false;
+    bar.innerHTML = '<div class="row"><span>데모: QR 찍기</span>' +
+      ['A', 'B', 'C', 'D'].map(function (id) { return '<button data-p="' + id + '">' + id + '</button>'; }).join('') +
+      '<button id="dA">A안 배너 보기</button><button id="dR">데모 초기화</button></div>';
+    function paint() {
+      bar.querySelectorAll('[data-p]').forEach(function (b) { b.classList.toggle('on', b.dataset.p === state.place); });
+      document.getElementById('dA').classList.toggle('on', !gbar.hidden);
+    }
+    bar.querySelectorAll('[data-p]').forEach(function (b) {
+      b.addEventListener('click', function () { state.place = b.dataset.p; paint(); start(); });
+    });
+    document.getElementById('dA').addEventListener('click', function () { gbar.hidden = !gbar.hidden; paint(); });
+    document.getElementById('dR').addEventListener('click', function () { Demo.reset(); store.del(PID_KEY); store.del('qrRally.req'); start(); });
+    if (!state.place) state.place = 'A';
+    paint();
+  }
+
+  if (MODE === 'DEMO') demoBar();
+  start();
+})();
+</script>
+</body>
+</html>
